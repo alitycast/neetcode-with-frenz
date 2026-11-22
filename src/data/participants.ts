@@ -12,6 +12,7 @@ export const participants: Participant[] = [
   {
     name: 'Layla',
     githubUsername: 'laylaxh',
-    repo: 'NeetCode-solutions',
+    repo: 'neetcode-submissions',
+    solutionDir: 'Data Structures & Algorithms',
   },
 ]
