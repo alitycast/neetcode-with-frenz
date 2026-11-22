@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ALL_CATEGORIES, CategoryFilter } from './components/CategoryFilter'
+import { CursorTrail } from './components/CursorTrail'
+import { Sparkle, StarfieldBackground } from './components/decorations'
 import { ProblemTable } from './components/ProblemTable'
+import { ProgressSummary } from './components/ProgressSummary'
 import { participants } from './data/participants'
 import problemsData from './data/problems.json'
 import { fetchParticipantGithubData, GitHubApiError } from './services/github'
@@ -8,6 +12,8 @@ import { buildCompletionSet } from './utils/problemMatcher'
 
 const problems = problemsData as Problem[]
 const configuredParticipants = participants.filter(isParticipantConfigured)
+const categoryOrder = [...new Set(problems.map((p) => p.category))]
+const RECENTLY_COMPLETED_DISPLAY_MS = 1500
 
 interface ParticipantError {
   participantName: string
@@ -24,6 +30,12 @@ function App() {
   const [lastSubmission, setLastSubmission] = useState<Date | null>(null)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<ParticipantError[]>([])
+  const [recentlyCompleted, setRecentlyCompleted] = useState<Set<string>>(new Set())
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES)
+  const [hideCompleted, setHideCompleted] = useState(false)
+
+  const previousCompletionRef = useRef<Record<string, Set<string>> | null>(null)
+  const hasLoadedOnceRef = useRef(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -54,6 +66,23 @@ function App() {
       }
     })
 
+    if (hasLoadedOnceRef.current) {
+      const newlyCompleted = new Set<string>()
+      for (const participant of configuredParticipants) {
+        const prevSet = previousCompletionRef.current?.[participant.name] ?? new Set<string>()
+        const nextSet = nextCompletion[participant.name] ?? new Set<string>()
+        for (const slug of nextSet) {
+          if (!prevSet.has(slug)) newlyCompleted.add(`${participant.name}:${slug}`)
+        }
+      }
+      if (newlyCompleted.size > 0) {
+        setRecentlyCompleted(newlyCompleted)
+        setTimeout(() => setRecentlyCompleted(new Set()), RECENTLY_COMPLETED_DISPLAY_MS)
+      }
+    }
+    previousCompletionRef.current = nextCompletion
+    hasLoadedOnceRef.current = true
+
     setCompletionByParticipant(nextCompletion)
     setLastSubmission(latest)
     setErrors(nextErrors)
@@ -64,31 +93,45 @@ function App() {
     refresh()
   }, [refresh])
 
+  const focusParticipant = configuredParticipants[0] ?? null
+
+  const filteredProblems = useMemo(() => {
+    return problems.filter((problem) => {
+      if (selectedCategory !== ALL_CATEGORIES && problem.category !== selectedCategory) return false
+      if (hideCompleted && focusParticipant) {
+        const isComplete = completionByParticipant[focusParticipant.name]?.has(problem.slug)
+        if (isComplete) return false
+      }
+      return true
+    })
+  }, [selectedCategory, hideCompleted, focusParticipant, completionByParticipant])
+
   return (
-    <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-      <header className="mx-auto max-w-3xl px-4 pt-8 pb-4">
+    <div className="isolate min-h-screen bg-night text-slate-100">
+      <StarfieldBackground completionByParticipant={completionByParticipant} />
+      <CursorTrail />
+
+      <header className="mx-auto max-w-3xl px-4 pt-6 pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">NeetCode with Frenz</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Tracking {problems.length} problems from the NeetCode 150
-            </p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {formatLastSubmission(lastSubmission)}
-            </p>
+            <h1 className="font-display flex items-center gap-2 text-2xl font-bold text-slate-50">
+              NeetCode with Frenz
+              <Sparkle className="h-5 w-5 text-butter motion-safe:animate-[gentle-bob_4s_ease-in-out_infinite]" />
+            </h1>
+            <p className="mt-1 text-xs text-slate-400">{formatLastSubmission(lastSubmission)}</p>
           </div>
           <button
             type="button"
             onClick={refresh}
             disabled={loading}
-            className="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-800"
+            className="font-display shrink-0 rounded-full border border-lavender/30 bg-night-card px-4 py-1.5 text-sm font-semibold text-lavender shadow-sm transition-colors hover:bg-lavender/10 disabled:opacity-50"
           >
-            {loading ? 'Refreshing…' : 'Refresh'}
+            {loading ? 'Refreshing…' : '✨ Refresh'}
           </button>
         </div>
 
         {errors.length > 0 && (
-          <div className="mt-4 space-y-1 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+          <div className="mt-4 space-y-1 rounded-2xl border border-blush/30 bg-blush/10 px-3 py-2 text-sm text-blush">
             {errors.map((e) => (
               <p key={e.participantName}>
                 {e.participantName}: {e.message}
@@ -99,10 +142,26 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-12">
-        <ProblemTable
-          problems={problems}
+        <ProgressSummary
           participants={participants}
           completionByParticipant={completionByParticipant}
+          totalProblems={problems.length}
+        />
+
+        <CategoryFilter
+          categories={categoryOrder}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          focusParticipantName={focusParticipant?.name ?? null}
+          hideCompleted={hideCompleted}
+          onToggleHideCompleted={() => setHideCompleted((prev) => !prev)}
+        />
+
+        <ProblemTable
+          problems={filteredProblems}
+          participants={participants}
+          completionByParticipant={completionByParticipant}
+          recentlyCompleted={recentlyCompleted}
         />
       </main>
     </div>

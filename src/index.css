@@ -1,1 +1,77 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-display: "Quicksand", ui-rounded, system-ui, sans-serif;
+
+  --color-blush: #f6b9d2;
+  --color-blush-soft: #3a2433;
+  --color-lavender: #c3b2f2;
+  --color-lavender-soft: #2a2447;
+  --color-mint: #9fe3c8;
+  --color-mint-soft: #1f3b35;
+  --color-butter: #ffd977;
+  --color-butter-soft: #3a331d;
+  --color-night: #15101f;
+  --color-night-deep: #0d0a15;
+  --color-night-card: #1d1830;
+}
+
+@keyframes sparkle-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes gentle-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pop-celebrate {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes burst-dot {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--burst-x, 10px), var(--burst-y, -10px)) scale(0);
+    opacity: 0;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
