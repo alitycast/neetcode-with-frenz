@@ -9,5 +9,9 @@ export const participants: Participant[] = [
   },
   // GitHub info pending - add githubUsername/repo once available.
   { name: 'Ali' },
-  { name: 'Layla' },
+  {
+    name: 'Layla',
+    githubUsername: 'laylaxh',
+    repo: 'NeetCode-solutions',
+  },
 ]
