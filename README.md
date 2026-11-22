@@ -1,8 +1,28 @@
 # NeetCode with Frenz
 
-A shared dashboard that tracks which NeetCode 150 problems each of us has solved, by reading our public GitHub solution repos. No backend, no login — static site hosted on GitHub Pages.
+Practice on [NeetCode.io](https://neetcode.io/practice?tab=neetcode150) and save accepted solutions in your own public GitHub repo. The [shared dashboard](https://vedikabirla.github.io/neetcode-with-frenz/) reads that repo and shows your NeetCode 150 progress.
 
-## Local setup
+## Join the dashboard
+
+1. Use one public GitHub repo for your solutions. If NeetCode's GitHub Sync has already created one for you, use that repo. If you prefer to push files yourself, create a public repo such as `neetcode-submissions`.
+2. Add your repo to [the participant list](src/data/participants.ts) and open a pull request against this dashboard repo. Once the change is merged and deployed, your progress will appear on the live dashboard.
+
+   ```ts
+   { name: 'Your name', githubUsername: 'your-username', repo: 'your-repo' }
+   ```
+
+   For NeetCode GitHub Sync, use `solutionDir: 'Data Structures & Algorithms'`. For manual uploads, set `solutionDir` to the folder containing your problem folders, or omit it if those folders are at the repo root.
+
+## Track a solve
+
+Save the accepted solution to your solutions repo, then click **Refresh** on the dashboard. No pull request is needed for individual solves.
+
+- **With GitHub Sync**, turn on **Auto-commit** and choose **Accepted only** for automatic tracking. The dashboard counts any matching problem folder containing a file as solved, so syncing failed attempts can publish them and count them as solves. [GitHub Sync settings](https://neetcode.io/profile/github)
+- **If you push files yourself**, use one folder per problem, named for the slug in the NeetCode URL. For Two Sum, save a file such as `two-integer-sum/solution.py` under your solutions directory. Any filename or extension works. The dashboard accepts case, hyphen, and underscore variations of the slug.
+
+## Improve the dashboard
+
+Make and test your changes in a local clone. If you have write access, push your branch to the shared repo. Otherwise, push it to your fork. Either way, open the pull request against the shared repo. Ask the repo owner for write access if you want to maintain it with the group.
 
 Requires Node 20+ (this project is developed on Node 24 LTS via `nvm`).
 
@@ -11,32 +31,3 @@ npm install
 npm run dev      # starts the dev server
 npm run build    # typecheck + production build
 ```
-
-## How it works
-
-Each person is listed in [`src/data/participants.ts`](src/data/participants.ts) with their GitHub username and solutions repo. On load (and on Refresh), the app reads each repo's file tree from the GitHub API and checks, for every NeetCode 150 problem, whether a matching solution folder exists.
-
-## Joining as a contributor (Ali, Layla)
-
-1. **Create a NeetCode account** at [neetcode.io](https://neetcode.io) and work through the [NeetCode 150 list](https://neetcode.io/practice?tab=neetcode150).
-2. **Create a public GitHub repo** to hold your solutions (any name, e.g. `neetcode-submissions`). It must be public — the dashboard can't read private repos.
-3. **Upload each solution** as a file inside a folder named after that problem's **NeetCode slug** — not the LeetCode one. Find it in the URL on the problem's NeetCode page: `neetcode.io/problems/<this-part>`.
-
-   Example — solving "Two Sum" (NeetCode slug `two-integer-sum`):
-
-   ```
-   <your-repo>/
-   └── <your-solutions-folder>/
-       └── two-integer-sum/
-           └── solution.py        (any filename/extension is fine)
-   ```
-
-   One folder per problem; a folder just needs *any* file in it to count as solved. Matching is forgiving about case/hyphens/underscores, but the folder name has to be the actual NeetCode slug — a LeetCode slug or a made-up name won't match.
-
-4. **Open a PR against this repo** adding yourself to [`src/data/participants.ts`](src/data/participants.ts):
-
-   ```ts
-   { name: 'Ali', githubUsername: 'your-username', repo: 'your-repo', solutionDir: 'optional/subfolder' }
-   ```
-
-   Omit `solutionDir` if your solutions sit at the repo root. Fork this repo, add your entry, and open a pull request.
