@@ -7,4 +7,7 @@ export const participants: Participant[] = [
     repo: 'neetcode-submissions',
     solutionDir: 'Data Structures & Algorithms',
   },
+  // GitHub info pending - add githubUsername/repo once available.
+  { name: 'Ali' },
+  { name: 'Layla' },
 ]

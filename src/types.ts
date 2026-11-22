@@ -9,8 +9,15 @@ export interface Problem {
 
 export interface Participant {
   name: string
-  githubUsername: string
-  repo: string
+  /** Omit along with repo until this person's GitHub info is known. */
+  githubUsername?: string
+  repo?: string
   /** Path within the repo where solutions live, e.g. "Data Structures & Algorithms" */
   solutionDir?: string
+}
+
+export function isParticipantConfigured(
+  participant: Participant,
+): participant is Participant & { githubUsername: string; repo: string } {
+  return Boolean(participant.githubUsername && participant.repo)
 }
