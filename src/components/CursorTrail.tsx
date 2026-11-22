@@ -20,6 +20,12 @@ const PHRASE_ROTATE_INTERVAL_MS = 6000
 const TEXT_TAIL_PADDING = 6
 const AMBIENT_FRACTIONS = [0.12, 0.28, 0.46, 0.64, 0.8, 0.94]
 
+const TAP_MOVE_THRESHOLD_PX = 10
+const TAP_MAX_DURATION_MS = 300
+const TAP_BURST_ANGLES = [-60, -20, 20, 60, 100]
+const TAP_BURST_DISTANCE = 14
+const TAP_BURST_ANIMATION = 'tap-spark 0.55s ease-out forwards'
+
 interface Point {
   x: number
   y: number
@@ -27,10 +33,15 @@ interface Point {
 
 /**
  * A shooting star whose tail is one continuously-reshaped SVG path (a chain
- * of points easing toward the cursor, each lagging the one before it). The
+ * of points easing toward the pointer, each lagging the one before it). The
  * motivational phrase rides that same path via <textPath>, so the browser's
  * own text layout bends and rotates each glyph to the path's tangent - no
  * per-letter math, no bubble/label element.
+ *
+ * Desktop uses plain mousemove, unchanged. Touch/pen input is handled
+ * separately via Pointer Events so a quick tap (no drag) gets a small spark
+ * burst instead of the full trail, and lifting a finger fades the trail
+ * immediately rather than waiting out the idle delay.
  */
 export function CursorTrail() {
   const pathId = useId()
@@ -43,11 +54,11 @@ export function CursorTrail() {
   const textPathRef = useRef<SVGTextPathElement>(null)
   const phraseTspanRef = useRef<SVGTSpanElement>(null)
   const ambientRefs = useRef<(SVGTextElement | null)[]>([])
+  const tapBurstRefs = useRef<(SVGCircleElement | null)[]>([])
 
   useEffect(() => {
-    const fineMotionQuery = window.matchMedia('(pointer: fine)')
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-    if (!fineMotionQuery.matches || reducedMotionQuery.matches) return
+    if (reducedMotionQuery.matches) return
 
     const group = groupRef.current
     const corePath = corePathRef.current
@@ -72,18 +83,18 @@ export function CursorTrail() {
 
     phraseTspan.textContent = MESSAGES[phraseIndex]
 
-    const handleMouseMove = (event: MouseEvent) => {
+    const resetNodesTo = (x: number, y: number) => {
+      for (const node of nodes) {
+        node.x = x
+        node.y = y
+      }
+    }
+
+    const advance = (x: number, y: number) => {
       const wasSettled = performance.now() - lastMoveTime > IDLE_FADE_DELAY_MS + IDLE_FADE_DURATION_MS
-      const isFirstMove = nodes[0].x === -200
-      target = { x: event.clientX, y: event.clientY }
+      target = { x, y }
       lastMoveTime = performance.now()
 
-      if (isFirstMove) {
-        for (const node of nodes) {
-          node.x = event.clientX
-          node.y = event.clientY
-        }
-      }
       if (wasSettled) {
         phraseIndex = (phraseIndex + 1) % MESSAGES.length
         phraseTspan.textContent = MESSAGES[phraseIndex]
@@ -93,6 +104,68 @@ export function CursorTrail() {
         running = true
         rafId = requestAnimationFrame(tick)
       }
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (nodes[0].x === -200) resetNodesTo(event.clientX, event.clientY)
+      advance(event.clientX, event.clientY)
+    }
+
+    // --- touch / pen, via Pointer Events - desktop mouse is untouched above ---
+    let activePointerId: number | null = null
+    let pointerDownX = 0
+    let pointerDownY = 0
+    let pointerDownTime = 0
+    let isDragging = false
+
+    const triggerTapBurst = (x: number, y: number) => {
+      TAP_BURST_ANGLES.forEach((angle, i) => {
+        const dot = tapBurstRefs.current[i]
+        if (!dot) return
+        const radians = (angle * Math.PI) / 180
+        dot.setAttribute('cx', String(x + Math.cos(radians) * TAP_BURST_DISTANCE))
+        dot.setAttribute('cy', String(y + Math.sin(radians) * TAP_BURST_DISTANCE))
+        dot.style.animation = 'none'
+        void dot.getBoundingClientRect()
+        dot.style.animation = TAP_BURST_ANIMATION
+      })
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse' || activePointerId !== null) return
+      activePointerId = event.pointerId
+      pointerDownX = event.clientX
+      pointerDownY = event.clientY
+      pointerDownTime = performance.now()
+      isDragging = false
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse' || event.pointerId !== activePointerId) return
+      const dx = event.clientX - pointerDownX
+      const dy = event.clientY - pointerDownY
+
+      if (!isDragging) {
+        if (Math.hypot(dx, dy) <= TAP_MOVE_THRESHOLD_PX) return
+        isDragging = true
+        resetNodesTo(event.clientX, event.clientY)
+      }
+      advance(event.clientX, event.clientY)
+    }
+
+    const endTouch = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse' || event.pointerId !== activePointerId) return
+      const duration = performance.now() - pointerDownTime
+      const moved = Math.hypot(event.clientX - pointerDownX, event.clientY - pointerDownY)
+
+      if (!isDragging && moved <= TAP_MOVE_THRESHOLD_PX && duration <= TAP_MAX_DURATION_MS) {
+        triggerTapBurst(event.clientX, event.clientY)
+      } else if (isDragging) {
+        // skip the idle wait and start the gentle fade right away
+        lastMoveTime = performance.now() - IDLE_FADE_DELAY_MS
+      }
+      activePointerId = null
+      isDragging = false
     }
 
     const tick = (now: number) => {
@@ -163,8 +236,16 @@ export function CursorTrail() {
     }
 
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('pointerdown', handlePointerDown, { passive: true })
+    window.addEventListener('pointermove', handlePointerMove, { passive: true })
+    window.addEventListener('pointerup', endTouch, { passive: true })
+    window.addEventListener('pointercancel', endTouch, { passive: true })
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', endTouch)
+      window.removeEventListener('pointercancel', endTouch)
       cancelAnimationFrame(rafId)
     }
   }, [])
@@ -208,6 +289,20 @@ export function CursorTrail() {
           </textPath>
         </text>
       </g>
+
+      {/* tap spark burst - independent of the trail's own fade state */}
+      {TAP_BURST_ANGLES.map((_, i) => (
+        <circle
+          key={i}
+          ref={(el) => {
+            tapBurstRefs.current[i] = el
+          }}
+          r="2"
+          fill="#f6b9d2"
+          opacity="0"
+          style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+        />
+      ))}
     </svg>
   )
 }
