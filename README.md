@@ -31,6 +31,8 @@ Each person is listed in [`src/data/participants.ts`](src/data/participants.ts) 
 
 Work through the [NeetCode 150 list](https://neetcode.io/practice?tab=neetcode150) and push your solutions to your own public solutions repo. The dashboard picks them up on load or when you click **Refresh**. Solving a problem never needs a pull request.
 
+If you use NeetCode's GitHub Sync, set the status filter to **Accepted only**. Your solutions repo is public, and the dashboard counts any matching problem folder containing a file as solved. Syncing all submissions can publish failed attempts and mark those problems as solved. [GitHub Sync settings](https://neetcode.io/profile/github)
+
 Use one folder per problem, named for the slug in the NeetCode problem URL. For Two Sum, save a file such as `two-integer-sum/solution.py` under your solutions directory. Any filename or extension works. The dashboard accepts case, hyphen, and underscore variations of the NeetCode slug.
 
 ## Maintain the shared dashboard
